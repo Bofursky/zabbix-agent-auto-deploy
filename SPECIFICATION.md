@@ -18,6 +18,7 @@ zabbix-agent-auto-deploy/
 ├── 7.0/
 │   ├── install.ps1
 │   └── install.sh
+├── AGENTS.md
 ├── README.md
 ├── SPECIFICATION.md
 ├── CHANGELOG.md
