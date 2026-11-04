@@ -1,5 +1,7 @@
 ﻿#requires -Version 5.1
-<# Wersja instalatora: 0.2.0. Samodzielny instalator Zabbix Agent 2 7.0 LTS. #>
+<# Wersja instalatora: 0.2.2. Samodzielny instalator Zabbix Agent 2 7.0 LTS.
+Poprawki: podmiana konfiguracji w PowerShell 5.1; log wyłącznie na pulpicie.
+#>
 [CmdletBinding()]
 param(
     [string]$Mode = 'passive',
@@ -27,6 +29,7 @@ $ServiceName = 'Zabbix Agent 2'
 $script:LogFile = $null
 $workPath = $null
 $backupPath = $null
+$stagedPath = $null
 $mutation = $false
 $wasRunning = $false
 $oldStartMode = $null
@@ -38,6 +41,32 @@ function Write-Status {
     param([string]$Message)
     Write-Output $Message
     if ($script:LogFile) { Add-Content -LiteralPath $script:LogFile -Value ('{0:o} {1}' -f (Get-Date), $Message) -Encoding UTF8 }
+}
+function Set-AgentConfigurationFile {
+    [CmdletBinding(SupportsShouldProcess)]
+    param([string]$Source, [string]$Destination)
+    if (-not $PSCmdlet.ShouldProcess($Destination, 'Atomowa podmiana konfiguracji')) { return }
+    # W PowerShell 5.1 $null bywa wiązany jako pusty string: File.Replace go odrzuca.
+    $temporaryBackup = Join-Path ([IO.Path]::GetDirectoryName($Destination)) ('previous-' + [guid]::NewGuid().ToString('N') + '.tmp')
+    if ([IO.File]::Exists($Destination)) {
+        [IO.File]::Replace($Source, $Destination, $temporaryBackup)
+        Remove-Item -LiteralPath $temporaryBackup -Force
+    } else { [IO.File]::Move($Source, $Destination) }
+}
+function Initialize-DesktopLog {
+    [CmdletBinding(SupportsShouldProcess)]
+    param([string]$RunId, [string]$DesktopPath)
+    if (-not $DesktopPath) {
+        $DesktopPath = [Environment]::GetFolderPath('DesktopDirectory')
+        if ([Security.Principal.WindowsIdentity]::GetCurrent().IsSystem) { $DesktopPath = [Environment]::GetFolderPath('CommonDesktopDirectory') }
+    }
+    if (-not $DesktopPath -or -not (Test-Path -LiteralPath $DesktopPath -PathType Container)) { throw 'Brak dostępnego pulpitu do zapisu logu instalatora.' }
+    $path = Join-Path $DesktopPath ("Zabbix-install-$RunId.log")
+    if ($PSCmdlet.ShouldProcess($path, 'Utworzenie logu na pulpicie')) {
+        $stream = [IO.File]::Open($path, 'CreateNew', 'Write', 'None')
+        $stream.Dispose()
+        return $path
+    }
 }
 function Test-IPv4 {
     param([string]$Value)
@@ -83,11 +112,11 @@ function Read-AgentConfiguration {
             if ($key -cmatch '^TLS' -or $key -cin @('HostMetadata','HostMetadataItem','HostInterface','HostInterfaceItem')) { throw 'Wykryto TLS lub ustawienia autorejestracji. Wymagany ręczny przegląd.' }
             if (-not $Main -and $key -cin @('Server','ServerActive','Hostname','ListenIP','ListenPort')) { throw 'Konflikt zarządzanych ustawień w Include. Wymagany ręczny przegląd.' }
             if ($key -ceq 'Include') {
-                if (-not [IO.Path]::IsPathRooted($value)) { throw 'Względny Include wymaga ręcznego przeglądu.' }
-                foreach ($child in @(Get-ChildItem -Path $value -File -ErrorAction SilentlyContinue)) {
+                if (-not [IO.Path]::IsPathRooted($value)) { $value = Join-Path ([IO.Path]::GetDirectoryName($fullPath)) $value }
+                foreach ($child in @(Get-ChildItem -Path $value -File -ErrorAction Stop)) {
                     $null = Read-AgentConfiguration -Path $child.FullName -Main $false -Visited $Visited
                 }
-                if (-not [Management.Automation.WildcardPattern]::ContainsWildcardCharacters($value) -and -not (Test-Path -LiteralPath $value -PathType Leaf)) { throw 'Brak pliku Include. Wymagany ręczny przegląd.' }
+                if (-not [Management.Automation.WildcardPattern]::ContainsWildcardCharacters($value) -and -not (Test-Path -LiteralPath $value)) { throw 'Brak pliku lub katalogu Include. Wymagany ręczny przegląd.' }
             }
         }
     }
@@ -121,10 +150,28 @@ function Invoke-AgentValidation {
     catch { throw 'Walidacja konfiguracji agenta nie powiodła się. Wymagany ręczny przegląd.' }
     if ($LASTEXITCODE -ne 0) { throw 'Walidacja konfiguracji agenta nie powiodła się. Wymagany ręczny przegląd.' }
 }
+function ConvertFrom-AgentVersion {
+    param([string[]]$OutputLines, [int]$ExitCode)
+    if ($ExitCode -ne 0 -or $OutputLines.Count -eq 0) { throw 'Nie można odczytać wersji pliku agenta.' }
+    # Zachowaj granice wierszy: 7.0.32 i Revision nie mogą stać się 7.0.32Revision.
+    $banner = $OutputLines[0].Trim()
+    if ($banner -notmatch '^zabbix_agent2\b[^\r\n]*\(Zabbix\)\s+([0-9]+\.[0-9]+\.[0-9]+)\s*$') { throw 'Nie rozpoznano nagłówka wersji Zabbix Agent 2.' }
+    $version = [version]$Matches[1]
+    if ($version.Major -ne 7 -or $version.Minor -ne 0) { throw 'Wersja pliku agenta jest spoza obsługiwanej linii 7.0.x.' }
+    return $version
+}
+function Get-AgentBinaryVersion {
+    param([string]$Binary)
+    try {
+        $outputLines = @(& $Binary -V 2>&1 | ForEach-Object { [string]$_ })
+        $code = $LASTEXITCODE
+    } catch { throw 'Nie można uruchomić odczytu wersji pliku agenta.' }
+    return ConvertFrom-AgentVersion -OutputLines $outputLines -ExitCode $code
+}
 
 if ($Help) {
     @'
-Instalator Zabbix Agent 2 7.0 LTS, wersja 0.2.0; Windows PowerShell 5.1.
+Instalator Zabbix Agent 2 7.0 LTS, wersja 0.2.2; Windows PowerShell 5.1.
 Windows x64: Windows 10/11 (kompilacja >=17763), Server 2019/2022/2025.
 Bez parametrów uruchamia kreator. Instalacja wymaga administratora.
 -Server IPv4                Wymagany adres serwera lub wybranego proxy
@@ -153,7 +200,12 @@ try {
     $installPath = Join-Path $env:ProgramFiles 'Zabbix Agent 2'
     $configPath = Join-Path $installPath 'zabbix_agent2.conf'
     $binaryPath = Join-Path $installPath 'zabbix_agent2.exe'
-    $rootPath = Join-Path $env:ProgramData 'ZabbixAgentAutoDeploy'
+    $rootPath = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'ZabbixAgentAutoDeploy'
+    $runId = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N')
+    if (-not $DryRun) {
+        $script:LogFile = Initialize-DesktopLog -RunId $runId
+        Write-Status 'Rozpoczęto sprawdzanie parametrów i przygotowanie instalacji.'
+    }
     $adapters = @(Get-NetAdapter | Where-Object Status -eq 'Up')
     $addresses = @(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.AddressState -eq 'Preferred' -and $_.InterfaceIndex -in $adapters.ifIndex -and (Test-IPv4 $_.IPAddress) } | Sort-Object IPAddress -Unique)
     if ($addresses.Count -eq 0) { throw 'Nie wykryto lokalnego IPv4 na aktywnych interfejsach.' }
@@ -194,7 +246,7 @@ try {
     $installedVersion = $null
     if ($services.Count -eq 1) {
         $serviceInfo = $services[0]
-        $expectedCommand = '^"?' + [regex]::Escape($binaryPath) + '"?\s+(?:-c|--config)\s+"?' + [regex]::Escape($configPath) + '"?\s*$'
+        $expectedCommand = '^"?' + [regex]::Escape($binaryPath) + '"?\s+(?:-c|--config)\s+"?' + [regex]::Escape($configPath) + '"?(?:\s+-f=false)?\s*$'
         if ($serviceInfo.PathName -notmatch $expectedCommand -or $products.Count -ne 1 -or -not (Test-Path -LiteralPath $configPath -PathType Leaf)) { throw 'Niestandardowa instalacja, ścieżka lub usługa. Wymagany ręczny przegląd.' }
         $productVersion = [version]$products[0].DisplayVersion
         $installedVersion = New-Object version($productVersion.Major, $productVersion.Minor, $productVersion.Build)
@@ -223,10 +275,8 @@ try {
     Set-PrivateDirectory $rootPath
     $lockStream = [IO.File]::Open((Join-Path $rootPath 'install.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
     if ($installedVersion -and (Read-AgentConfiguration -Path $configPath -Main $true -Visited @{}) -cne $originalText) { throw 'Konfiguracja zmieniła się od przygotowania planu. Uruchom instalator ponownie.' }
-    $runId = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N')
     $workPath = Join-Path $rootPath $runId
     Set-PrivateDirectory $workPath
-    $script:LogFile = Join-Path $workPath 'install.log'
     Write-Status 'Rozpoczęto realizację zatwierdzonego planu.'
     $targetPath = Join-Path $workPath 'target.conf'
     [IO.File]::WriteAllText($targetPath, $targetText, (New-Object Text.UTF8Encoding($false)))
@@ -254,14 +304,18 @@ try {
         if ($process.ExitCode -eq 3010) { Write-Status 'MSI zgłosił potrzebę restartu systemu. Instalator nie wykonuje restartu automatycznie.' }
         if ((Get-Service -Name $ServiceName).Status -ne 'Stopped') { Stop-Service -Name $ServiceName; throw 'MSI nie pozostawił usługi zatrzymanej. Wymagany ręczny przegląd.' }
     }
+    $binaryVersion = Get-AgentBinaryVersion -Binary $binaryPath
+    if ($installNeeded -and $binaryVersion -ne [version]$AgentVersion) { throw 'Wersja zainstalowanego pliku agenta nie odpowiada przypiętej wersji pakietu.' }
+    Write-Status "Sprawdzono wersję pliku agenta: $binaryVersion"
     $mutation = $true
-    Invoke-AgentValidation $binaryPath $targetPath
     if ($changed -or $installNeeded) {
+        # Zachowaj bazę względnych Include podczas sprawdzania pliku tymczasowego.
         $stagedPath = Join-Path $installPath ('zabbix_agent2.conf.' + [guid]::NewGuid().ToString('N') + '.tmp')
         [IO.File]::WriteAllText($stagedPath, $targetText, (New-Object Text.UTF8Encoding($false)))
         Set-Acl -LiteralPath $stagedPath -AclObject (Get-Acl -LiteralPath $configPath)
-        [IO.File]::Replace($stagedPath, $configPath, $null)
-    }
+        Invoke-AgentValidation -Binary $binaryPath -Path $stagedPath
+        Set-AgentConfigurationFile -Source $stagedPath -Destination $configPath
+    } else { Invoke-AgentValidation -Binary $binaryPath -Path $configPath }
     Set-Service -Name $ServiceName -StartupType Automatic
     $service = Get-Service -Name $ServiceName
     if ($service.Status -eq 'Running' -and ($changed -or $installNeeded)) { Restart-Service -Name $ServiceName }
@@ -276,8 +330,6 @@ try {
     if (@($listener | Where-Object OwningProcess -eq $servicePid).Count -eq 0) { throw 'Brak docelowego nasłuchu procesu agenta.' }
     $pingResult = & $binaryPath -c $configPath -t agent.ping 2>&1
     if ($LASTEXITCODE -ne 0 -or ($pingResult -join '') -notmatch '\[(?:s|u)\|1\]') { throw 'Lokalny test agent.ping nie powiódł się.' }
-    $versionResult = & $binaryPath -V 2>&1
-    if ($LASTEXITCODE -ne 0 -or ($versionResult -join '') -notmatch '\b7\.0\.\d+\b') { throw 'Nieprawidłowa wersja pliku agenta.' }
     $mutation = $false
     Write-Status "Sukces. Konfiguracja: $configPath; backup: $backupPath; log: $script:LogFile"
     Write-Status "Hostname=$hostNameValue; Server=$Server; ServerActive=$ServerActive; GUI=$($InterfaceAddress):$ListenPort"
@@ -296,7 +348,7 @@ try {
                 $recoveryPath = Join-Path $installPath ('recovery-' + [guid]::NewGuid().ToString('N') + '.tmp')
                 Copy-Item -LiteralPath $backupPath -Destination $recoveryPath
                 Set-Acl -LiteralPath $recoveryPath -AclObject $originalAcl
-                [IO.File]::Replace($recoveryPath, $configPath, $null)
+                Set-AgentConfigurationFile -Source $recoveryPath -Destination $configPath
             }
             if ($oldStartMode) {
                 $startMode = @{Auto='Automatic'; Manual='Manual'; Disabled='Disabled'}[$oldStartMode]
@@ -304,11 +356,14 @@ try {
                 Set-ItemProperty -LiteralPath "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName" -Name DelayedAutoStart -Value $oldDelayedStart
                 if ($wasRunning) { Start-Service -Name $ServiceName }
             } elseif (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) { Set-Service -Name $ServiceName -StartupType Disabled }
-            Write-Status 'Odtworzono konfigurację i poprzedni stan usługi. Nowa instalacja pozostaje zatrzymana. Backup nie cofa aktualizacji programu.'
+            if ($backupPath) { Write-Status 'Odtworzono konfigurację i poprzedni stan usługi. Backup nie cofa aktualizacji programu.' }
+            elseif ($oldStartMode) { Write-Status 'Przywrócono poprzedni stan usługi. Nie odtwarzano konfiguracji, ponieważ nie było backupu.' }
+            else { Write-Status 'Nowa instalacja pozostaje zatrzymana i wyłączona. Brak poprzedniej konfiguracji do odtworzenia.' }
         } catch { Write-Status 'Odzyskiwanie niepełne. Wymagany ręczny przegląd konfiguracji i usługi.' }
     }
 } finally {
     if ($lockStream) { $lockStream.Dispose() }
+    if ($stagedPath -and (Test-Path -LiteralPath $stagedPath)) { Remove-Item -LiteralPath $stagedPath -Force }
     if ($workPath) {
         foreach ($name in @('agent.msi', 'target.conf')) {
             $temporaryPath = Join-Path $workPath $name

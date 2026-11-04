@@ -4,6 +4,14 @@ Wersjonowanie SemVer instalatorów jest niezależne od wersji Zabbix Agent 2.
 
 ## Nieopublikowane
 
+### 0.2.2 — poprawki Windows
+
+- Naprawiono atomową podmianę konfiguracji i odzyskiwanie pliku w Windows PowerShell 5.1 przez jawną ścieżkę pliku tymczasowego zamiast pustego argumentu File.Replace.
+- Log instalatora jest zapisywany wyłącznie na pulpicie konta uruchamiającego (dla SYSTEM na pulpicie publicznym). Backupy i pliki robocze trafiają do LocalAppData, bez tworzenia własnych plików w ProgramData.
+- Poprawiono rozpoznawanie istniejącej usługi z argumentem `-f=false` i obsługę względnych ścieżek Include. Walidacja konfiguracji tymczasowej odbywa się w katalogu docelowym.
+- Naprawiono odczyt wielowierszowego wyniku wersji agenta, który powodował fałszywy błąd i zatrzymanie działającej usługi. Kontrola wersji odbywa się przed uruchamianiem usługi.
+- Poprawiono komunikaty odzyskiwania przy braku poprzedniej konfiguracji. Użytkownik potwierdził pomyślną instalację wersji 0.2.2 na Windows; weryfikacja Network Discovery pozostaje osobnym etapem.
+
 ### 0.2.0
 
 - Zaimplementowano samodzielne instalatory Windows x64 (PowerShell 5.1), Debian 12/13 amd64 i Rocky Linux 9 x86_64, przypięte do Zabbix Agent 2 7.0.32.
