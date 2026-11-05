@@ -1,0 +1,3 @@
+# Zachowaj kodowanie BOM skryptu PowerShell i zakończenia LF skryptu Bash.
+/7.0/install.sh text eol=lf
+/7.0/install.ps1 text eol=crlf
