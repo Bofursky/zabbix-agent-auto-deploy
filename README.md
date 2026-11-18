@@ -42,7 +42,7 @@ bash 7.0/install.sh --help
 
 Windows: 64-bitowy Windows PowerShell 5.1, architektura x64 i kompilacja systemu co najmniej 17763 (Windows 10/11, Server 2019/2022/2025). Linux: **Debian 12/13 amd64 lub Rocky Linux 9 x86_64**, Bash 4+, działający systemd, Python 3, iproute2 (`ip`, `ss`), procps (`pgrep`), curl, GnuPG, coreutils i util-linux (`flock`). Debian wymaga apt/dpkg; Rocky wymaga dnf/rpm. Pakiety zależności systemowych muszą być dostępne w poprawnie skonfigurowanych repozytoriach dystrybucji.
 
-Instalacja oraz plan wymagają administratora/root; pomoc działa bez podwyższonych uprawnień. Inne wersje Linuksa i architektury są odrzucane. Ubuntu, RHEL i AlmaLinux pozostają docelowym zakresem specyfikacji i nie są zaimplementowane w tej zmianie dla Debiana i Rocky. Lista systemów zweryfikowanych pełną instalacją: **brak**.
+Instalacja oraz plan wymagają administratora/root; pomoc działa bez podwyższonych uprawnień. Inne wersje Linuksa i architektury są odrzucane. Ubuntu, RHEL i AlmaLinux pozostają docelowym zakresem specyfikacji i nie są zaimplementowane w tej zmianie dla Debiana i Rocky. Pełną instalację Linuksa potwierdzono na **Debianie 13 amd64**.
 
 Po skopiowaniu pojedynczego skryptu na host uruchom kreator:
 
@@ -122,7 +122,9 @@ Weryfikacja 0.2.0 z 3 listopada 2026: 33/33 testy Pester w Windows PowerShell 5.
 
 Weryfikacja Windows 0.2.2 z 4 listopada 2026: 70/70 testów Pester w Windows PowerShell 5.1, obejmujących walidację parametrów, powtarzalność konfiguracji, względne Include i konflikty, rozpoznawanie usługi, podmianę i odzyskiwanie plików, zapis logu na pulpicie oraz odczyt wersji rzeczywistego pliku agenta bez uruchamiania usługi. Testy pomocnicze pozostają lokalne, poza śledzonym zakresem repozytorium.
 
-Dla Windows 0.2.2 użytkownik potwierdził pomyślną instalację. Nie potwierdzono pełnej macierzy systemów, aktualizacji, odzyskiwania po błędzie, idempotencji całej instalacji ani wyników Network Discovery. Instalacji Linux nie sprawdzono. Nie sprawdzono rzeczywistej blokady startu usługi przez pakiet ani braku zmian zapory podczas instalacji. Przed wdrożeniem wymagane są scenariusze z sekcji 7 specyfikacji na zatwierdzonych maszynach Windows, Debian i Rocky. Testy zmieniające system, wymagające administratora lub dostępu do infrastruktury potrzebują osobnej zgody.
+Ręczne testy instalatora Linux 0.2.0 na Debianie 13 amd64 zakończyły się pomyślnie. Sprawdzono świeżą instalację z kreatora, ponowne uruchomienie z identycznymi parametrami bez reinstalacji i dodatkowego backupu oraz świeżą instalację bez kreatora (`--non-interactive --yes`) po `apt purge zabbix-agent2`. Po pierwszej instalacji agent miał zielony status ZBX w panelu Zabbixa.
+
+Dla Windows 0.2.2 użytkownik potwierdził pomyślną instalację. Nie potwierdzono pełnej macierzy systemów, aktualizacji, odzyskiwania po błędzie, idempotencji całej instalacji ani wyników Network Discovery. Instalacje na Debianie 12 i Rocky Linux 9 pozostają do sprawdzenia. Nie sprawdzono rzeczywistej blokady startu usługi przez pakiet ani braku zmian zapory podczas instalacji. Przed wdrożeniem wymagane są scenariusze z sekcji 7 specyfikacji na zatwierdzonych maszynach Windows, Debian i Rocky. Testy zmieniające system, wymagające administratora lub dostępu do infrastruktury potrzebują osobnej zgody.
 
 ## Licencja i źródła
 

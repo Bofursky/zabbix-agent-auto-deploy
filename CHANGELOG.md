@@ -4,6 +4,8 @@ Wersjonowanie SemVer instalatorów jest niezależne od wersji Zabbix Agent 2.
 
 ## Nieopublikowane
 
+- Potwierdzono trzy scenariusze testowe instalatora Linux 0.2.0 na Debianie 13 amd64: instalację z kreatora, ponowne uruchomienie bez reinstalacji i dodatkowego backupu oraz świeżą instalację bez kreatora po usunięciu pakietu.
+
 ### 0.2.2 — poprawki Windows
 
 - Naprawiono atomową podmianę konfiguracji i odzyskiwanie pliku w Windows PowerShell 5.1 przez jawną ścieżkę pliku tymczasowego zamiast pustego argumentu File.Replace.
