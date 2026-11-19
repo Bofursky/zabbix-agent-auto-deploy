@@ -2,7 +2,7 @@
 
 ## 1. Cel projektu
 
-Projekt `zabbix-agent-auto-deploy` służy do automatyzacji instalacji, konfiguracji i kontrolowanej aktualizacji Zabbix Agent 2 na systemach Windows oraz Linux.
+Projekt `zabbix-agent-auto-deploy` służy do automatyzacji instalacji, konfiguracji i kontrolowanej aktualizacji Zabbix Agent 2 oraz zmiany adresu IP proxy na Windows i Linuksie.
 
 Projekt jest publiczny i powinien być rozwijany zgodnie z dobrymi praktykami programowania, bezpieczeństwa, dokumentowania zmian i kontroli wersji.
 
@@ -200,7 +200,7 @@ Podstawowe pliki projektu:
 
 Nie wprowadzaj niepotwierdzonych informacji do dokumentacji.
 
-Docelowy zakres ze `SPECIFICATION.md` obejmuje dwa samodzielne skrypty `7.0/install.ps1` i `7.0/install.sh`. Nie dodawaj modułów, katalogów dokumentacji, frameworków testowych ani GitHub Actions. Powyższa lista dokumentacji określa tematy, nie nakaz tworzenia osobnych plików. Zasady testów i workflow dotyczą istniejących narzędzi oraz zmian osobno zleconych przez użytkownika; nie rozszerzają zakresu specyfikacji. Nie usuwaj istniejących elementów projektu w ramach uzgadniania tych dokumentów.
+Zakres ze `SPECIFICATION.md` obejmuje samodzielne instalatory `7.0/install.ps1` i `7.0/install.sh` oraz skrypty zmiany adresu IP proxy `7.0/update.ps1` i `7.0/update.sh`. Nie dodawaj modułów, katalogów dokumentacji, frameworków testowych ani GitHub Actions. Powyższa lista dokumentacji określa tematy, nie nakaz tworzenia osobnych plików. Zasady testów i workflow dotyczą istniejących narzędzi oraz zmian osobno zleconych przez użytkownika; nie rozszerzają zakresu specyfikacji. Nie usuwaj istniejących elementów projektu w ramach uzgadniania tych dokumentów.
 
 ## 11. GitHub Actions — poza bieżącym zakresem
 

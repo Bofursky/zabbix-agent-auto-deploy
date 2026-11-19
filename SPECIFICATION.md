@@ -1,6 +1,6 @@
 # Specyfikacja zabbix-agent-auto-deploy
 
-Wersja dokumentu: 1.6.1
+Wersja dokumentu: 1.7.0
 
 ## 1. Cel i pliki
 
@@ -9,7 +9,9 @@ Przygotować dwa samodzielne skrypty instalujące i konfigurujące **Zabbix Agen
 - `7.0/install.ps1` — Windows, Windows PowerShell 5.1.
 - `7.0/install.sh` — Linux: Debian, Ubuntu, RHEL, Rocky Linux i AlmaLinux.
 
-Każdy skrypt działa po skopiowaniu go na host, bez dodatkowych modułów i plików projektu. Linux korzysta z apt lub dnf i systemd. Wymagane są uprawnienia administratora/root. Przed zmianami sprawdzić wersję systemu, architekturę i dostępność odpowiedniego oficjalnego pakietu; niewspierany system zakończyć czytelnym komunikatem. W README podać rzeczywiście sprawdzone systemy.
+Każdy instalator działa po skopiowaniu go na host, bez dodatkowych modułów i plików projektu. Instalator Linux korzysta z apt lub dnf i systemd. Wymagane są uprawnienia administratora/root. Przed instalacją sprawdzić wersję systemu, architekturę i dostępność odpowiedniego oficjalnego pakietu; niewspierany system zakończyć czytelnym komunikatem. W README podać rzeczywiście sprawdzone systemy.
+
+Na hostach z istniejącą instalacją zmianę adresu IP proxy obsługują samodzielne skrypty `7.0/update.ps1` i `7.0/update.sh`. Ich wymagania opisuje sekcja 4.1.
 
 Struktura repozytorium:
 
@@ -17,7 +19,9 @@ Struktura repozytorium:
 zabbix-agent-auto-deploy/
 ├── 7.0/
 │   ├── install.ps1
-│   └── install.sh
+│   ├── install.sh
+│   ├── update.ps1
+│   └── update.sh
 ├── AGENTS.md
 ├── README.md
 ├── SPECIFICATION.md
@@ -26,7 +30,7 @@ zabbix-agent-auto-deploy/
 └── .gitignore
 ```
 
-Katalog `7.0` dotyczy 7.0.x, nie całej rodziny 7.x. Dokładną wersję pakietu, oficjalne źródła i dane weryfikacji zapisać w sekcji stałych każdego skryptu. Nie pobierać automatycznie ruchomego „latest”. Wersję samych skryptów umieścić w nagłówku i CHANGELOG.
+Katalog `7.0` dotyczy 7.0.x, nie całej rodziny 7.x. Dokładną wersję pakietu, oficjalne źródła i dane weryfikacji zapisać w sekcji stałych każdego instalatora. Nie pobierać automatycznie ruchomego „latest”. Wersję instalatorów umieścić w nagłówku i CHANGELOG.
 
 ## 2. Ustawienia agenta
 
@@ -104,6 +108,13 @@ Bez parametrów skrypt uruchamia kreator. Obsługuje również własne parametry
 Parametry CLI mają pierwszeństwo przed propozycjami kreatora. W trybie bez pytań wymagane jest `Yes`, chyba że wybrano `DryRun`. Pomoc nie wymaga uprawnień administratora.
 
 Przed wykonaniem pokazać wersję agenta, oba IP, nazwę hosta, lokalny adres, port i plan zmian. Sprawdzić składnię IPv4 i portów oraz odrzucić nieznane flagi i znaki pozwalające wstrzyknąć dodatkowe dyrektywy. Port `ServerActive`: 1–65535; `ListenPort`: 1024–32767. Nie używać `eval` ani `Invoke-Expression`.
+
+### 4.1. Zmiana adresu IP proxy
+
+- Skrypt Windows działa w Windows PowerShell 5.1 na standardowym pliku `%ProgramFiles%\Zabbix Agent 2\zabbix_agent2.conf`. Skrypt Linux używa Bash i Python 3 oraz pliku `/etc/zabbix/zabbix_agent2.conf`. Do zapisu i restartu wymagane są odpowiednie uprawnienia.
+- Menu udostępnia opcję `1. Adres IP proxy`. Po jej wybraniu skrypt przyjmuje jeden prawidłowy IPv4 i podmienia adres w obu aktywnych wpisach `Server` i `ServerActive` w głównym pliku. Każdy klucz musi wystąpić dokładnie raz, a każda wartość musi zawierać pojedynczy IPv4. Istniejący port `ServerActive` oraz pozostała treść pliku pozostają bez zmian.
+- Skrypt tworzy kopię obok konfiguracji przed podmianą pliku i podaje jej ścieżkę. Jeśli oba adresy już odpowiadają wartości wejściowej, pomija zapis i tworzenie kopii.
+- Po pomyślnym zakończeniu skrypt pyta o restart usługi. Odpowiedź `t` lub `tak` uruchamia restart usługi `Zabbix Agent 2` w Windows lub `zabbix-agent2.service` w systemd. Domyślnie restart jest pomijany. Błąd restartu kończy skrypt kodem niezerowym i zachowuje zapisaną konfigurację.
 
 ## 5. Instalacja, backup i błędy
 

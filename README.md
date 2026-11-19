@@ -1,6 +1,6 @@
 # zabbix-agent-auto-deploy
 
-Projekt dwóch samodzielnych instalatorów **Zabbix Agent 2 7.0.x LTS** dla Windows i Linux. Źródłem wymagań jest [SPECIFICATION.md](SPECIFICATION.md), wersja 1.6.1; zasady pracy opisuje [AGENTS.md](AGENTS.md).
+Projekt zawiera samodzielne instalatory **Zabbix Agent 2 7.0.x LTS** oraz skrypty do zmiany adresu IP proxy na Windows i Linuksie. Wymagania opisuje [SPECIFICATION.md](SPECIFICATION.md) w wersji 1.7.0, a zasady pracy opisuje [AGENTS.md](AGENTS.md).
 
 ## Stan projektu
 
@@ -12,7 +12,9 @@ Instalator Windows w wersji **0.2.2** i instalator Linux w wersji **0.2.0** impl
 zabbix-agent-auto-deploy/
 ├── 7.0/
 │   ├── install.ps1
-│   └── install.sh
+│   ├── install.sh
+│   ├── update.ps1
+│   └── update.sh
 ├── AGENTS.md
 ├── README.md
 ├── SPECIFICATION.md
@@ -86,6 +88,29 @@ Konfiguracja Windows: `%ProgramFiles%\Zabbix Agent 2\zabbix_agent2.conf`. Log in
 
 Po błędzie skrypt próbuje przywrócić główny plik konfiguracji oraz poprzedni stan usługi i raportuje wynik. Nowa nieudana instalacja pozostaje zatrzymana; pakiet nie jest automatycznie odinstalowywany. Backup nie cofa aktualizacji programu ani zależności. Logi, backupy i ewentualne zmiany pakietów wymagają ręcznego przeglądu po niepełnym odzyskiwaniu. MSI zgłaszający kod 3010 powoduje komunikat o wymaganym restarcie; skrypt nie restartuje systemu.
 
+## Zmiana adresu IP proxy
+
+Uruchom skrypt na hoście z już zainstalowanym Zabbix Agent 2 i standardowym plikiem konfiguracji. Każdy skrypt można skopiować na host samodzielnie.
+
+- **Windows** — uruchom Windows PowerShell 5.1 jako administrator. Plik konfiguracji znajduje się w `%ProgramFiles%\Zabbix Agent 2\zabbix_agent2.conf`.
+- **Linux** — uruchom skrypt jako root. Wymagane są Bash i Python 3, a do restartu usługi potrzebny jest systemd. Plik konfiguracji znajduje się w `/etc/zabbix/zabbix_agent2.conf`.
+
+```powershell
+.\7.0\update.ps1
+```
+
+```bash
+sudo bash 7.0/update.sh
+```
+
+1. W menu wybierz **1. Adres IP proxy**.
+2. Podaj nowy adres IPv4, np. `192.0.2.20`. Skrypt podstawi go w obu wpisach, `Server` i `ServerActive`, zachowując istniejący port `ServerActive` i pozostałą treść konfiguracji.
+3. Na pytanie **Czy uruchomić ponownie usługę Zabbix Agent 2? [t/N]** wpisz `t` lub `tak`, żeby zastosować zmianę od razu. Enter pomija restart.
+
+W głównym pliku musi występować dokładnie jeden aktywny wpis każdego z tych parametrów, z pojedynczym IPv4 w każdym. Listy adresów, nazwy DNS i wpisy zdefiniowane wyłącznie w plikach `Include` wymagają ręcznego przeglądu. Skrypt aktualizuje wyłącznie główny plik.
+
+Przed podmianą konfiguracji skrypt tworzy kopię `zabbix_agent2.conf.bak-*` obok głównego pliku i wypisuje jej ścieżkę. Jeśli oba wpisy już zawierają podany adres, pomija zapis i tworzenie kopii, a pytanie o restart nadal się pojawia. Gdy restart się nie powiedzie, skrypt zgłasza błąd i zachowuje zapisaną konfigurację. Przypisanie hosta do proxy w Zabbix administrator ustawia osobno.
+
 ## Dodawanie hostów passive
 
 Po instalacji i uruchomieniu agenta administrator konfiguruje **Network Discovery i Discovery Actions**:
@@ -125,6 +150,8 @@ Weryfikacja Windows 0.2.2 z 4 listopada 2026: 70/70 testów Pester w Windows Pow
 Ręczne testy instalatora Linux 0.2.0 na Debianie 13 amd64 zakończyły się pomyślnie. Sprawdzono świeżą instalację z kreatora, ponowne uruchomienie z identycznymi parametrami bez reinstalacji i dodatkowego backupu oraz świeżą instalację bez kreatora (`--non-interactive --yes`) po `apt purge zabbix-agent2`. Po pierwszej instalacji agent miał zielony status ZBX w panelu Zabbixa.
 
 Dla Windows 0.2.2 użytkownik potwierdził pomyślną instalację. Nie potwierdzono pełnej macierzy systemów, aktualizacji, odzyskiwania po błędzie, idempotencji całej instalacji ani wyników Network Discovery. Instalacje na Debianie 12 i Rocky Linux 9 pozostają do sprawdzenia. Nie sprawdzono rzeczywistej blokady startu usługi przez pakiet ani braku zmian zapory podczas instalacji. Przed wdrożeniem wymagane są scenariusze z sekcji 7 specyfikacji na zatwierdzonych maszynach Windows, Debian i Rocky. Testy zmieniające system, wymagające administratora lub dostępu do infrastruktury potrzebują osobnej zgody.
+
+Skrypty `update` przeszły kontrolę składni i symulacje na plikach tymczasowych w Windows PowerShell 5.1 i Ubuntu WSL. Sprawdzono zmianę obu adresów, zachowanie portu, kopię zapasową, ponowne uruchomienie z tym samym adresem, błędny IPv4 oraz pominięcie, potwierdzenie i błąd restartu z atrapami usług. Użytkownik potwierdził działanie obu skryptów w praktyce na Windows i Linuksie.
 
 ## Licencja i źródła
 

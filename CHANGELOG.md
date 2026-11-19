@@ -4,6 +4,8 @@ Wersjonowanie SemVer instalatorów jest niezależne od wersji Zabbix Agent 2.
 
 ## Nieopublikowane
 
+- Dodano interaktywne skrypty `7.0/update.ps1` i `7.0/update.sh` do zmiany IPv4 proxy w `Server` i `ServerActive` z zachowaniem portu, kopią konfiguracji i opcjonalnym restartem usługi. Użytkownik potwierdził działanie na Windows i Linuksie.
+
 - Potwierdzono trzy scenariusze testowe instalatora Linux 0.2.0 na Debianie 13 amd64: instalację z kreatora, ponowne uruchomienie bez reinstalacji i dodatkowego backupu oraz świeżą instalację bez kreatora po usunięciu pakietu.
 
 ### 0.2.2 — poprawki Windows
